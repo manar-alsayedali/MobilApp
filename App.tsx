@@ -5,12 +5,14 @@
  * @format
  */
 
+
+import React from 'react';
 import {
   StatusBar,
   StyleSheet,
-  Text,
   useColorScheme,
   View,
+  Text,
 } from 'react-native';
 import {
   SafeAreaProvider,
@@ -53,7 +55,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '70',
+    fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {

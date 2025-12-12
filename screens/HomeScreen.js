@@ -77,7 +77,7 @@ export default function HomeScreen() {
 
   const saveSession = async () => {
     if (seconds === 0) {
-      alert("Önce odaklanma süresi kaydetmelisin.");
+      alert("Önce odaklanma suresi kaydetmelisin.");
       return;
     }
 

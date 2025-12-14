@@ -11,10 +11,10 @@ import {
   PanResponder,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 
 const INITIAL_CATEGORIES = ["Ders Çalışma", "Kodlama", "Proje", "Kitap Okuma"];
 const DEFAULT_MINUTES = 25;
-
 
 const TABS_ORDER = ["Home", "Reports", "History"];
 
@@ -36,7 +36,6 @@ export default function HomeScreen({ navigation, route }) {
   const appState = useRef(AppState.currentState);
   const pausedByBackgroundRef = useRef(false);
 
- 
   const currentRouteName = route?.name ?? "Home";
   const currentIndex = TABS_ORDER.indexOf(currentRouteName);
 
@@ -45,19 +44,15 @@ export default function HomeScreen({ navigation, route }) {
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         const { dx, dy } = gestureState;
-        
         return Math.abs(dx) > 20 && Math.abs(dx) > Math.abs(dy);
       },
       onPanResponderRelease: (evt, gestureState) => {
         const { dx } = gestureState;
 
-        // sağadan sola kaydırma → sonraki taba git
         if (dx < -20 && currentIndex < TABS_ORDER.length - 1) {
           const nextRoute = TABS_ORDER[currentIndex + 1];
           navigation.navigate(nextRoute);
-        }
-        // soldan sağa kaydırma → önceki taba git
-        else if (dx > 20 && currentIndex > 0) {
+        } else if (dx > 20 && currentIndex > 0) {
           const prevRoute = TABS_ORDER[currentIndex - 1];
           navigation.navigate(prevRoute);
         }
@@ -88,22 +83,44 @@ export default function HomeScreen({ navigation, route }) {
     };
   }, [isRunning, targetMinutes]);
 
-  //  AppState: dikkatim dağıldı kontrolü
+  //  AppState: uygulamadan çıkınca seansı duraklat + bildirim gönder
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       const prevState = appState.current;
 
+      // aktif → background/inactive
       if (
         prevState === "active" &&
         (nextState === "background" || nextState === "inactive")
       ) {
         if (isRunning) {
+          // seansı duraklat + dikkat dağınıklığı artır
           setIsRunning(false);
           setDistractions((prev) => prev + 1);
           pausedByBackgroundRef.current = true;
+
+          // kullaniciya bildirim gönder
+          (async () => {
+            try {
+              await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: "Seans duraklatıldı ⏸️",
+                  body:
+                    "Uygulamadan çıktığın için zamanlayıcı durduruldu. Devam etmek için bildirime tıklayabilirsin.",
+                },
+                trigger: null, // hemen göster
+              });
+            } catch (e) {
+              console.log(
+                "Error scheduling background pause notification",
+                e
+              );
+            }
+          })();
         }
       }
 
+      // background/inactive → active
       if (
         (prevState === "background" || prevState === "inactive") &&
         nextState === "active"
@@ -149,7 +166,7 @@ export default function HomeScreen({ navigation, route }) {
   const adjustTargetMinutes = (delta) => {
     if (isRunning) return;
 
-    const newMinutes = Math.min(120, Math.max(5, targetMinutes + delta));
+    const newMinutes = Math.min(120, Math.max(1, targetMinutes + delta));
     setTargetMinutes(newMinutes);
     setRemainingSeconds(newMinutes * 60);
     setDistractions(0);
@@ -202,7 +219,7 @@ export default function HomeScreen({ navigation, route }) {
     }
   };
 
-  const endSession = (reason, elapsedSeconds) => {
+  const endSession = async (reason, elapsedSeconds) => {
     setIsRunning(false);
 
     if (!elapsedSeconds || elapsedSeconds <= 0) {
@@ -220,6 +237,25 @@ export default function HomeScreen({ navigation, route }) {
     setLastSessionSummary(summary);
     saveSessionToStorage(summary);
     pausedByBackgroundRef.current = false;
+
+    try {
+      const title =
+        reason === "Süre tamamlandı"
+          ? "Seans tamamlandı ⏰"
+          : "Seans durduruldu";
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body: `Kategori: ${summary.category} • Süre: ${formatTime(
+            summary.durationSeconds
+          )} • Dikkat dağınıklığı: ${summary.distractions}`,
+        },
+        trigger: null,
+      });
+    } catch (e) {
+      console.log("Error scheduling notification", e);
+    }
   };
 
   const handleSelectCategory = (cat) => {
@@ -256,7 +292,7 @@ export default function HomeScreen({ navigation, route }) {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
-      {...panResponder.panHandlers} 
+      {...panResponder.panHandlers}
     >
       <Text style={styles.title}>Odaklanma Zamanlayıcısı</Text>
       <Text style={styles.subtitle}>
@@ -326,7 +362,7 @@ export default function HomeScreen({ navigation, route }) {
 
         <Text style={styles.timerText}>{formatTime(remainingSeconds)}</Text>
         <Text style={styles.helperText}>
-          Hedef süre: {targetMinutes} dk (5–120 dk arası ayarlanabilir)
+          Hedef süre: {targetMinutes} dk (1–120 dk arası ayarlanabilir)
         </Text>
 
         <View style={styles.buttonsRow}>

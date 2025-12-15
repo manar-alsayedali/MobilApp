@@ -91,5 +91,5 @@ Aşağıdaki adımlar, projeyi yerel ortamda çalıştırmak içindir.
 ### 2. Projeyi Klonlama
 
 ```bash
-git clone <REPO_LINKIN>
-cd <REPO_KLASORUN>
+git clone <https://github.com/manar-alsayedali/MobilApp>
+cd <MobilApp>

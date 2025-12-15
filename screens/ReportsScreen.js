@@ -14,8 +14,32 @@ import { BarChart, PieChart } from "react-native-chart-kit";
 const screenWidth = Dimensions.get("window").width;
 const chartBaseWidth = screenWidth - 32;
 
-
 const TABS_ORDER = ["Home", "Reports", "History"];
+
+// HSL → HEX dönüşümü için yardımcı fonksiyon
+const hslToHex = (h, s, l) => {
+  s /= 100;
+  l /= 100;
+
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const color =
+      l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
+  };
+
+  return `#${f(0)}${f(8)}${f(4)}`; // R G B
+};
+
+// Kategori sayısına göre farklı renk üret
+const getColorForIndex = (index, totalCount) => {
+  if (totalCount <= 0) totalCount = 1;
+  const hue = Math.round((index / totalCount) * 360); // renk çarkına eşit dağıt
+  return hslToHex(hue, 70, 50); // %70 saturation, %50 lightness
+};
 
 export default function ReportsScreen({ navigation, route }) {
   const [sessions, setSessions] = useState([]);
@@ -125,8 +149,8 @@ export default function ReportsScreen({ navigation, route }) {
     secondsToMinutes(sec)
   );
 
-  const PIE_COLORS = ["#4f46e5", "#f97316", "#22c55e", "#0ea5e9", "#ec4899"];
   const MAX_LEGEND_NAME = 12;
+  const totalCategories = categoryLabels.length || 1;
 
   const pieData = categoryLabels.map((fullLabel, index) => {
     const minutes = categoryMinutes[index] || 0;
@@ -135,10 +159,12 @@ export default function ReportsScreen({ navigation, route }) {
         ? fullLabel.slice(0, MAX_LEGEND_NAME - 1) + "…"
         : fullLabel;
 
+    const color = getColorForIndex(index, totalCategories);
+
     return {
       name: shortLabel,
       population: minutes,
-      color: PIE_COLORS[index % PIE_COLORS.length],
+      color,
       legendFontColor: "#4b5563",
       legendFontSize: 11,
     };

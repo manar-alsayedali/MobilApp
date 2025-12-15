@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import HomeScreen from "../screens/HomeScreen";
 import ReportsScreen from "../screens/ReportsScreen";
+import HistoryScreen from "../screens/HistoryScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -20,6 +21,11 @@ export default function TabNavigator() {
           name="Reports"
           component={ReportsScreen}
           options={{ title: "Raporlar" }}
+        />
+        <Tab.Screen
+          name="History"
+          component={HistoryScreen}
+          options={{ title: "Geçmiş" }}
         />
       </Tab.Navigator>
     </NavigationContainer>

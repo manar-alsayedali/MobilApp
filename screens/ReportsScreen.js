@@ -1,14 +1,47 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  PanResponder,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
 import { BarChart, PieChart } from "react-native-chart-kit";
 
-const screenWidth = Dimensions.get("window").width - 32;
+const screenWidth = Dimensions.get("window").width;
+const chartBaseWidth = screenWidth - 32;
 
-export default function ReportsScreen() {
+
+const TABS_ORDER = ["Home", "Reports", "History"];
+
+export default function ReportsScreen({ navigation, route }) {
   const [sessions, setSessions] = useState([]);
   const isFocused = useIsFocused();
+
+  const currentRouteName = route?.name ?? "Reports";
+  const currentIndex = TABS_ORDER.indexOf(currentRouteName);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 20 && Math.abs(dx) > Math.abs(dy);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const { dx } = gestureState;
+        if (dx < -20 && currentIndex < TABS_ORDER.length - 1) {
+          const nextRoute = TABS_ORDER[currentIndex + 1];
+          navigation.navigate(nextRoute);
+        } else if (dx > 20 && currentIndex > 0) {
+          const prevRoute = TABS_ORDER[currentIndex - 1];
+          navigation.navigate(prevRoute);
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     if (isFocused) {
@@ -26,18 +59,61 @@ export default function ReportsScreen() {
     }
   };
 
-  const totalSessions = sessions.length;
-  const totalSeconds = sessions.reduce(
+  const getDateKey = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.toDateString();
+  };
+
+  const todayKey = new Date().toDateString();
+
+  const totalSecondsAllTime = sessions.reduce(
     (sum, s) => sum + (s.duration || 0),
     0
   );
-  const totalMinutes = Math.round(totalSeconds / 60);
   const totalDistractions = sessions.reduce(
     (sum, s) => sum + (s.distractions || 0),
     0
   );
+  const totalSecondsToday = sessions
+    .filter((s) => getDateKey(s.date) === todayKey)
+    .reduce((sum, s) => sum + (s.duration || 0), 0);
 
-  // تجميع حسب الفئة
+  const secondsToMinutes = (sec) => Math.round(sec / 60);
+
+  const getMondayFirstIndex = (dateObj) => {
+    const day = dateObj.getDay();
+    return (day + 6) % 7;
+  };
+
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+
+    const key = d.toDateString();
+    const label = d.toLocaleDateString("tr-TR", {
+      weekday: "short",
+    });
+
+    const daySeconds = sessions
+      .filter((s) => getDateKey(s.date) === key)
+      .reduce((sum, s) => sum + (s.duration || 0), 0);
+
+    last7.push({
+      key,
+      label,
+      minutes: secondsToMinutes(daySeconds),
+      weekdayIndex: getMondayFirstIndex(d),
+    });
+  }
+
+  last7.sort((a, b) => a.weekdayIndex - b.weekdayIndex);
+
+  const last7Labels = last7.map((d) => d.label);
+  const last7Values = last7.map((d) => d.minutes);
+
+  const barChartWidth = Math.max(chartBaseWidth, last7Labels.length * 60);
+
   const categoryMap = {};
   sessions.forEach((s) => {
     const cat = s.category || "Diğer";
@@ -45,107 +121,219 @@ export default function ReportsScreen() {
   });
 
   const categoryLabels = Object.keys(categoryMap);
-  const categoryDurations = Object.values(categoryMap).map((sec) =>
-    Math.round(sec / 60)
-  ); // بالدقائق
+  const categoryMinutes = Object.values(categoryMap).map((sec) =>
+    secondsToMinutes(sec)
+  );
 
-  const pieData = categoryLabels.map((label, index) => ({
-    name: label,
-    population: categoryDurations[index] || 0,
-    color: PIE_COLORS[index % PIE_COLORS.length],
-    legendFontColor: "#333",
-    legendFontSize: 12,
-  }));
+  const PIE_COLORS = ["#4f46e5", "#f97316", "#22c55e", "#0ea5e9", "#ec4899"];
+  const MAX_LEGEND_NAME = 12;
+
+  const pieData = categoryLabels.map((fullLabel, index) => {
+    const minutes = categoryMinutes[index] || 0;
+    const shortLabel =
+      fullLabel.length > MAX_LEGEND_NAME
+        ? fullLabel.slice(0, MAX_LEGEND_NAME - 1) + "…"
+        : fullLabel;
+
+    return {
+      name: shortLabel,
+      population: minutes,
+      color: PIE_COLORS[index % PIE_COLORS.length],
+      legendFontColor: "#4b5563",
+      legendFontSize: 11,
+    };
+  });
+
+  const chartConfig = {
+    backgroundGradientFrom: "#ffffff",
+    backgroundGradientTo: "#ffffff",
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(79, 70, 229, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(55, 65, 81, ${opacity})`,
+    propsForDots: {
+      r: "4",
+    },
+  };
+
+  const totalMinutesAllTime = secondsToMinutes(totalSecondsAllTime);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
-      <Text style={styles.title}>Raporlar</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      {...panResponder.panHandlers}
+    >
+      <Text style={styles.title}> Raporlar</Text>
+      <Text style={styles.subtitle}>
+        Odaklanma alışkanlıklarını günlere ve kategorilere göre incele.
+      </Text>
 
+      {/* Genel İstatistikler */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Genel İstatistikler</Text>
-        <Text>Toplam Oturum Sayısı: {totalSessions}</Text>
-        <Text>Toplam Odaklanma Süresi: {totalMinutes} dakika</Text>
-        <Text>Toplam Dikkat Dağınıklığı: {totalDistractions} kez</Text>
+        <Text style={styles.statText}>
+          Bugün Toplam Odaklanma Süresi:{" "}
+          <Text style={styles.statValue}>
+            {secondsToMinutes(totalSecondsToday)} dk
+          </Text>
+        </Text>
+        <Text style={styles.statText}>
+          Tüm Zamanların Toplam Odaklanma Süresi:{" "}
+          <Text style={styles.statValue}>
+            {secondsToMinutes(totalSecondsAllTime)} dk
+          </Text>
+        </Text>
+        <Text style={styles.statText}>
+          Toplam Dikkat Dağınıklığı Sayısı:{" "}
+          <Text style={styles.statValue}>{totalDistractions}</Text>
+        </Text>
       </View>
 
-      {categoryLabels.length > 0 && (
-        <>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Kategori Bazlı Süre (Bar Chart)</Text>
+      {/* Son 7 gün Bar Chart */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          Son 7 Gün Odaklanma Süreleri (dk)
+        </Text>
+        <Text style={styles.helperText}>
+          Her sütun ilgili gündeki toplam odaklanma süresini gösterir.
+        </Text>
+
+        <View style={styles.chartWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <BarChart
               data={{
-                labels: categoryLabels,
-                datasets: [{ data: categoryDurations }],
+                labels: last7Labels,
+                datasets: [{ data: last7Values }],
               }}
-              width={screenWidth}
+              width={barChartWidth}
               height={220}
               fromZero
+              showValuesOnTopOfBars
               chartConfig={chartConfig}
               style={styles.chart}
             />
-          </View>
+          </ScrollView>
+        </View>
+      </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Kategori Dağılımı (Pie Chart)</Text>
+      {/* Pie Chart */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          Kategorilere Göre Odaklanma Süresi Dağılımı
+        </Text>
+        <Text style={styles.helperText}>
+          Hangi kategoride ne kadar süre odaklandığını yüzdesel olarak gösterir.
+        </Text>
+
+        {categoryLabels.length > 0 ? (
+          <>
             <PieChart
               data={pieData}
-              width={screenWidth}
+              width={chartBaseWidth}
               height={220}
               accessor="population"
               backgroundColor="transparent"
-              paddingLeft="8"
+              paddingLeft="10"
               chartConfig={chartConfig}
               style={styles.chart}
             />
-          </View>
-        </>
-      )}
 
-      {categoryLabels.length === 0 && (
-        <View style={styles.section}>
-          <Text>Henüz kayıtlı oturum yok. Lütfen önce zamanlayıcıdan oturum ekleyin.</Text>
-        </View>
-      )}
+            <View style={styles.legendContainer}>
+              {categoryLabels.map((fullLabel, index) => {
+                const minutes = categoryMinutes[index] || 0;
+                const percentage =
+                  totalMinutesAllTime > 0
+                    ? Math.round((minutes / totalMinutesAllTime) * 100)
+                    : 0;
+
+                const legendLine = `${fullLabel}: ${minutes} dk (%${percentage})`;
+
+                return (
+                  <Text key={fullLabel} style={styles.legendText}>
+                    {legendLine}
+                  </Text>
+                );
+              })}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.emptyText}>
+            Henüz kayıtlı oturum yok. Ana sayfadan seans başlatarak verileri
+            görselleştirebilirsin.
+          </Text>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
-const PIE_COLORS = ["#007AFF", "#FF9500", "#34C759", "#AF52DE", "#FF2D55"];
-
-const chartConfig = {
-  backgroundGradientFrom: "#ffffff",
-  backgroundGradientTo: "#ffffff",
-  decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-};
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: "#f5f5f5",
-  },
+  container: { flex: 1, backgroundColor: "#f3f4f6" },
+  contentContainer: { padding: 16, paddingBottom: 32 },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontSize: 26,
+    fontWeight: "800",
+    marginVertical: 8,
     textAlign: "center",
+    color: "#111827",
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    color: "#6b7280",
+    marginBottom: 16,
   },
   section: {
-    backgroundColor: "white",
+    backgroundColor: "#ffffff",
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
-    elevation: 2,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 12,
+    marginBottom: 6,
+    color: "#111827",
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#9ca3af",
+    marginBottom: 8,
+  },
+  statText: {
+    fontSize: 15,
+    marginBottom: 4,
+    color: "#4b5563",
+  },
+  statValue: {
+    fontWeight: "700",
+    color: "#111827",
+  },
+  chartWrapper: {
+    marginTop: 4,
   },
   chart: {
-    marginTop: 8,
-    borderRadius: 12,
+    marginTop: 4,
+    borderRadius: 16,
+  },
+  legendContainer: {
+    marginTop: 12,
+  },
+  legendText: {
+    fontSize: 14,
+    marginBottom: 4,
+    flexWrap: "wrap",
+    width: "100%",
+    color: "#4b5563",
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 4,
   },
 });

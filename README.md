@@ -12,7 +12,7 @@ performanslarını görselleştirmelerini amaçlamaktadır.
 
 ## Özellikler
 
-- 🎯 **Zamanlayıcı (Ana Sayfa / Zamanlayıcı Ekranı)**
+- **Zamanlayıcı (Ana Sayfa / Zamanlayıcı Ekranı)**
   - Varsayılan 25 dakikalık geri sayım sayacı (5–120 dk aralığında ayarlanabilir).
   - **Başlat / Duraklat / Sıfırla** butonları.
   - Seans başlamadan önce kategori seçimi:
@@ -23,7 +23,7 @@ performanslarını görselleştirmelerini amaçlamaktadır.
     - Süre, kategori, dikkat dağınıklığı sayısı ve varsa hedef bilgisi ile
       **seans özeti** gösterilir.
 
-- 👀 **Dikkat Dağınıklığı Takibi (AppState + Buton)**
+- **Dikkat Dağınıklığı Takibi (AppState + Buton)**
   - Sayaç çalışırken kullanıcı uygulamadan çıkarsa (AppState `background`):
     - Seans otomatik olarak duraklatılır.
     - Dikkat dağınıklığı sayacı 1 artırılır.
@@ -32,7 +32,7 @@ performanslarını görselleştirmelerini amaçlamaktadır.
   - Kullanıcı, “Dikkatim dağıldı” butonuna basarak da manuel olarak
     dikkat dağınıklığı sayısını artırabilir.
 
-- 📊 **Raporlar (Dashboard) Ekranı**
+- **Raporlar (Dashboard) Ekranı**
   - **Veri tabanına (AsyncStorage)** kaydedilmiş tüm seans verileri okunur.
   - Genel istatistikler:
     - Bugün Toplam Odaklanma Süresi
@@ -43,7 +43,7 @@ performanslarını görselleştirmelerini amaçlamaktadır.
     - Odaklanma sürelerinin kategorilere göre dağılımını gösteren
       **Pasta Grafik (Pie Chart)**.
 
-- 📚 **Geçmiş (History) Ekranı**
+- **Geçmiş (History) Ekranı**
   - Tüm seanslar tarih sırasına göre listelenir.
   - Her kayıt için:
     - Tarih – saat
@@ -53,7 +53,7 @@ performanslarını görselleştirmelerini amaçlamaktadır.
     - (Varsa) seans hedefi
     - Seansın bitiş nedeni (süre doldu / kullanıcı durdurdu vb.)
 
-- 💾 **Veri Saklama (Yerel Veri Tabanı – AsyncStorage)**
+- **Veri Saklama (Yerel Veri Tabanı – AsyncStorage)**
   - Her seans tamamlandığında JSON formatında bir kayıt oluşturulur.
   - Bu kayıtlar cihazda yerel olarak `@sessions` anahtarında saklanır.
   - Raporlar ve Geçmiş ekranı bu kayıtlardan beslenir.

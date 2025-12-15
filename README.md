@@ -91,5 +91,7 @@ Aşağıdaki adımlar, projeyi yerel ortamda çalıştırmak içindir.
 ### 2. Projeyi Klonlama
 
 ```bash
-git clone <https://github.com/manar-alsayedali/MobilApp>
-cd <MobilApp>
+git clone https://github.com/manar-alsayedali/MobilApp.git
+cd MobilApp
+npm install
+npx expo start
